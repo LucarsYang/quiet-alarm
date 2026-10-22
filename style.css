@@ -1,0 +1,123 @@
+:root {
+  --bg: #f3f1ec; --ink: #2b2b2b; --muted: #7a776f;
+  --green: #3fb27f; --yellow: #f2b632; --red: #e5484d;
+  --card: #ffffff; --line: #e4e0d8;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+/* 版面：手機滿版，電腦置中、最大 480px */
+#app {
+  max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh;
+  background: var(--card); display: flex; flex-direction: column; position: relative;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.screen { display: none; flex: 1; flex-direction: column; min-height: 0; }
+#app[data-screen="start"] .screen-start,
+#app[data-screen="listening"] .screen-listening,
+#app[data-screen="alarm"] .screen-alarm,
+#app[data-screen="settings"] .screen-settings { display: flex; }
+#app[data-screen="alarm"] .topbar-main,
+#app[data-screen="settings"] .topbar-main { display: none; }
+
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 6px; font-size: 15px; font-weight: 600; }
+.icon-btn { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f1efe9; display: grid; place-items: center; font-size: 19px; padding: 0; }
+.back-btn { border: 0; background: none; font-size: 16px; font-weight: 600; padding: 6px 4px; }
+.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 0 22px; }
+
+.face { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-size: 84px; transition: background .2s; }
+.face.neutral { background: #f1efe9; }
+.status { font-size: 26px; font-weight: 700; transition: color .2s; }
+
+/* 心情顏色 */
+#app[data-mood="calm"] #mood-face { background: #e3f5ec; }
+#app[data-mood="warn"] #mood-face { background: #fdf1d6; }
+#app[data-mood="loud"] #mood-face { background: #fbe1e2; }
+#app[data-mood="calm"] #mood-text { color: var(--green); }
+#app[data-mood="warn"] #mood-text { color: #d99a0b; }
+#app[data-mood="loud"] #mood-text { color: var(--red); }
+#app[data-mood="calm"] #level-fill { background: var(--green); }
+#app[data-mood="warn"] #level-fill { background: var(--yellow); }
+#app[data-mood="loud"] #level-fill { background: var(--red); }
+
+/* 音量條 */
+.meter { width: 100%; margin-top: 22px; }
+.bar { position: relative; height: 22px; border-radius: 11px; background: #eeebe4; }
+.fill { height: 100%; width: 0; border-radius: 11px; transition: width .1s linear; }
+.threshold { position: absolute; top: -6px; bottom: -6px; width: 3px; margin-left: -1px; background: var(--ink); border-radius: 2px; left: 65%; }
+.threshold span { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; white-space: nowrap; color: var(--ink); }
+.meter-legend { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.big-num { font-size: 13px; color: var(--muted); }
+.big-num b { font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.btn { display: block; width: 100%; border: 0; border-radius: 16px; padding: 16px; font-size: 18px; font-weight: 700; text-align: center; }
+.btn.primary { background: var(--green); color: #fff; }
+.btn.ghost { background: #f1efe9; color: var(--ink); }
+.btn.white { background: #fff; color: var(--red); }
+.bottom { padding: 0 22px 26px; display: flex; flex-direction: column; gap: 10px; }
+.hint { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
+.error { margin: 0; color: var(--red); font-size: 14px; font-weight: 600; text-align: center; }
+.error:empty { display: none; }
+
+/* 警報：全螢幕紅閃 */
+body.alarm { background: var(--red); animation: flash 0.8s steps(1) infinite; }
+#app[data-screen="alarm"] { background: var(--red); color: #fff; animation: flash 0.8s steps(1) infinite; }
+@keyframes flash { 50% { background: #b8262b; } }
+.screen-alarm .face { background: rgba(255,255,255,.18); font-size: 92px; }
+.alarm-title { font-size: 40px; font-weight: 800; letter-spacing: 2px; }
+.alarm-sub { font-size: 16px; opacity: .9; }
+.countdown { display: flex; gap: 10px; min-height: 22px; }
+.dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff; transition: background .15s; }
+.dot.on { background: #fff; }
+
+/* 設定 */
+.settings { padding: 4px 20px 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+.field > label, .field > legend { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; padding: 0; }
+.field small { font-weight: 400; color: var(--muted); }
+
+.slider { position: relative; height: 32px; margin: 4px 0 6px; }
+.slider .track { position: absolute; left: 0; right: 0; top: 12px; height: 8px; border-radius: 4px; background: #eeebe4; }
+.slider .live { position: absolute; left: 0; top: 12px; height: 8px; width: 0; border-radius: 4px; background: var(--yellow); opacity: .7; transition: width .1s linear; }
+.slider input[type="range"] {
+  position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 32px; margin: 0;
+  background: transparent; -webkit-appearance: none; appearance: none;
+}
+.slider input[type="range"]::-webkit-slider-runnable-track { height: 32px; background: transparent; }
+.slider input[type="range"]::-moz-range-track { height: 32px; background: transparent; }
+.slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 26px; height: 26px; margin-top: 3px;
+  border-radius: 50%; background: #fff; border: 3px solid var(--ink);
+}
+.slider input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid var(--ink); }
+.slider-legend { margin-top: 0; }
+
+.small-btn { font-size: 13px; padding: 8px 12px; border: 0; border-radius: 10px; background: #f1efe9; }
+
+/* 分段與選項：radio 透明蓋滿整個標籤，點哪裡都選得到 */
+.seg { display: flex; background: #f1efe9; border-radius: 12px; padding: 3px; }
+.seg label, .chips label { position: relative; flex: 1; display: block; }
+.seg input, .chips input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.seg span { display: block; text-align: center; padding: 8px 0; font-size: 13px; border-radius: 9px; }
+.seg input:checked + span { background: #fff; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chips span { display: block; border: 2px solid var(--line); border-radius: 12px; padding: 9px 6px; font-size: 13px; text-align: center; }
+.chips input:checked + span { border-color: var(--green); background: #e3f5ec; font-weight: 700; }
+.seg input:focus-visible + span, .chips input:focus-visible + span { outline: 2px solid var(--green); outline-offset: 1px; }
+
+.record-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.record-row[hidden], [hidden] { display: none !important; }
+.record-hint { font-size: 12px; color: var(--muted); }
+
+@media (min-width: 520px) {
+  body { padding: 24px 0; }
+  #app { min-height: calc(100dvh - 48px); border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+}

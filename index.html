@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>安靜警報</title>
+<meta name="theme-color" content="#3fb27f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="安靜警報">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app" data-screen="start" data-mood="calm">
+
+  <!-- 開始畫面與監聽共用的上方列 -->
+  <div class="topbar topbar-main">
+    <span>安靜警報</span>
+    <button type="button" id="btn-settings" class="icon-btn" aria-label="設定">⚙️</button>
+  </div>
+
+  <!-- ① 開始前 -->
+  <section class="screen screen-start">
+    <div class="center">
+      <div class="face neutral">🤫</div>
+      <div class="status">準備好了嗎？</div>
+      <div class="hint">按下開始後，手機會聽周圍的聲音<br>太吵就會響警報</div>
+    </div>
+    <div class="bottom">
+      <p id="error-text" class="error" role="alert"></p>
+      <button type="button" id="btn-start" class="btn primary">開始</button>
+      <div class="hint">第一次會問要不要讓網頁用麥克風，請按「允許」</div>
+    </div>
+  </section>
+
+  <!-- ② 監聽中 -->
+  <section class="screen screen-listening">
+    <div class="center">
+      <div class="face" id="mood-face">😊</div>
+      <div class="status" id="mood-text">很安靜</div>
+      <div class="meter">
+        <div class="bar">
+          <div class="fill" id="level-fill"></div>
+          <div class="threshold" id="threshold-mark"><span id="threshold-label">警報 65</span></div>
+        </div>
+        <div class="meter-legend"><span>小聲</span><span class="big-num">現在 <b id="level-value">0</b></span><span>大聲</span></div>
+      </div>
+    </div>
+    <div class="bottom">
+      <button type="button" id="btn-stop" class="btn ghost">停止</button>
+      <div class="hint">請保持畫面開著（螢幕關掉就聽不到）</div>
+    </div>
+  </section>
+
+  <!-- ③ 警報中 -->
+  <section class="screen screen-alarm">
+    <div class="center">
+      <div class="face">🤫</div>
+      <div class="alarm-title">太吵了！</div>
+      <div class="alarm-sub" id="alarm-sub">安靜 3 秒就會停</div>
+      <div class="countdown" id="quiet-dots"></div>
+    </div>
+    <div class="bottom">
+      <button type="button" id="btn-dismiss" class="btn white">解除</button>
+    </div>
+  </section>
+
+  <!-- ④ 設定 -->
+  <section class="screen screen-settings">
+    <div class="topbar">
+      <button type="button" id="btn-back" class="back-btn">‹ 設定</button><span></span>
+    </div>
+    <div class="settings">
+      <div class="field">
+        <label for="threshold-input">多大聲要響 <small>（目前 <span id="threshold-now">65</span>）</small></label>
+        <div class="slider">
+          <div class="track"></div>
+          <div class="live" id="live-bar"></div>
+          <input type="range" id="threshold-input" min="0" max="100" step="1" value="65">
+        </div>
+        <div class="meter-legend slider-legend">
+          <span>黃色＝現在的音量</span>
+          <button type="button" id="btn-use-current" class="small-btn" disabled>用現在的音量設定</button>
+        </div>
+      </div>
+
+      <fieldset class="field">
+        <legend>吵多久才響</legend>
+        <div class="seg">
+          <label><input type="radio" name="sustain" value="0.5"><span>0.5 秒</span></label>
+          <label><input type="radio" name="sustain" value="1" checked><span>1 秒</span></label>
+          <label><input type="radio" name="sustain" value="2"><span>2 秒</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>警報聲</legend>
+        <div class="chips">
+          <label><input type="radio" name="sound" value="voice" checked><span>🗣️ 請安靜</span></label>
+          <label><input type="radio" name="sound" value="beep"><span>🔔 嗶嗶聲</span></label>
+          <label><input type="radio" name="sound" value="custom"><span>🎙️ 自己錄</span></label>
+          <label><input type="radio" name="sound" value="none"><span>🔇 只閃畫面</span></label>
+        </div>
+        <div class="record-row" id="record-row" hidden>
+          <button type="button" id="btn-record" class="small-btn">🎙️ 錄音 3 秒</button>
+          <button type="button" id="btn-preview" class="small-btn" hidden>▶️ 試聽</button>
+          <span class="record-hint" id="record-hint">還沒錄，響的時候會用嗶嗶聲</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>安靜幾秒解除</legend>
+        <div class="seg">
+          <label><input type="radio" name="quiet" value="2"><span>2 秒</span></label>
+          <label><input type="radio" name="quiet" value="3" checked><span>3 秒</span></label>
+          <label><input type="radio" name="quiet" value="5"><span>5 秒</span></label>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+</main>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
