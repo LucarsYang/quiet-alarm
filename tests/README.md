@@ -50,8 +50,21 @@ python3 -m pytest tests -q -k webkit       # 只跑 WebKit 主流程
 | 7 錄音鈕只在 custom 出現 | `test_settings.py::test_b7_record_button_hidden_unless_custom`、`test_b7_record_button_shown_for_custom` |
 | 7 設定存 localStorage、重開保留且生效 | `test_settings.py::test_b7_settings_persist_after_reopen` |
 | 主流程（WebKit） | `test_webkit.py::test_webkit_main_flow` |
+| v1.1 F1 按鈕在 `#btn-stop` 上方、樣式同 stop | `test_float.py::test_f1_float_button_above_stop_with_same_style_as_stop` |
+| v1.1 F1 沒有 API → `#btn-float` hidden（Chromium 刪掉 API、WebKit） | `test_float.py::test_f1_no_api_float_button_hidden_chromium`、`test_f1_no_api_float_button_hidden_webkit` |
+| v1.1 F1 小視窗開著時按鈕 hidden | `test_float.py::test_f1_float_button_hidden_while_window_open` |
+| v1.1 F2 requestWindow 240×140、CSS 寫進小視窗 document | `test_float.py::test_f2_click_requests_window_240x140_and_shows_listening`、`test_f2_css_written_into_window_document_not_loaded_file` |
+| v1.1 F2 開窗失敗（reject／throw）紅字、照常監聽 | `test_float.py::test_f2_open_failure_shows_error_and_keeps_listening` |
+| v1.1 F3 監聽中數值同主頁（心情、字、音量、條寬與顏色、門檻） | `test_float.py::test_f3_listening_values_match_main_page`、`test_f3_level_follows_each_tick` |
+| v1.1 F3 設定畫面照常顯示監聽、門檻跟著變 | `test_float.py::test_f3_settings_screen_keeps_listening_view_and_threshold_follows` |
+| v1.1 F3 警報（請安靜！、圓點數與亮數同主頁、解除） | `test_float.py::test_f3_alarm_view_and_dots_match_main_page`、`test_f3_alarm_dot_count_follows_quiet_setting` |
+| v1.1 F3 停止 → 已停止＋回主頁按開始 | `test_float.py::test_f3_stop_shows_stopped_in_window` |
+| v1.1 F4 小視窗解除＝主頁解除 | `test_float.py::test_f4_window_dismiss_equals_main_dismiss` |
+| v1.1 F5 關窗照常監聽、按鈕回來、可再開；停止不關、再開始回監聽 | `test_float.py::test_f5_user_close_keeps_listening_and_button_returns`、`test_f5_can_reopen_after_close`、`test_f5_stop_keeps_window_then_start_returns_to_listening` |
 
 ## 沒有自動化的部分（要人工或主對談實機驗）
+
+- v1.1 浮動小視窗：假 `documentPictureInPicture` 寫在 `test_float.py`（iframe 當小視窗、close 先觸發 pagehide、小視窗的計時器交給主頁 page.clock，關窗時一起清掉）。沒測：版面（左表情圓、右狀態字）、表情、門檻線位置（合約沒有 id）、紅閃與白底紅字、麥克風斷線時顯示已停止（測試模式沒有斷線 hook）、F6 背景節流、F7 sw.js VERSION——DQV 模式 B 驗。
 
 - 5 全螢幕紅閃、beep 880Hz 三聲約 1.5 秒、voice 實際聲音：合約沒有可觀察的 hook。
 - 7 黃色即時音量條：合約沒有給 DOM id。
