@@ -9,6 +9,8 @@
   var MIC_CONSTRAINTS = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
   var TEXT_DENIED = '沒有麥克風權限，請到瀏覽器設定允許';
   var TEXT_LOST = '麥克風斷了，請再按一次開始';
+  var TEXT_FLOAT_FAIL = '開不了浮動小視窗';
+  var PIP_OK = 'documentPictureInPicture' in window;   // Chrome／Edge 116+、Firefox 151+；Safari 與手機沒有
   var MOODS = {
     calm: { face: '😊', text: '很安靜' },
     warn: { face: '😐', text: '有點吵' },
@@ -22,6 +24,7 @@
     dots: $('quiet-dots'), alarmSub: $('alarm-sub'), error: $('error-text'), live: $('live-bar'),
     thInput: $('threshold-input'), useCurrent: $('btn-use-current'), recordRow: $('record-row'),
     record: $('btn-record'), preview: $('btn-preview'), recordHint: $('record-hint'),
+    float: $('btn-float'), floatError: $('float-error'),
   };
 
   // ---------- 設定 ----------
@@ -38,6 +41,7 @@
   // ---------- 狀態（瀏覽器端） ----------
   var smoothed = 0;          // EMA 後的音量（0～100，未取整）
   var tickTimer = null;
+  var tickHost = window;     // 計時器掛在哪個 window（小視窗開著就掛小視窗，避開背景分頁節流）
   var playTimer = null;      // 測試模式的假播放計時
   var starting = false;
   var ctx = null, analyser = null, sink = null, source = null, stream = null, buf = null;
@@ -48,6 +52,10 @@
   var customBlob = null, customBuffer = null;
   var currentSound = null;   // 正在播的 AudioBufferSourceNode／OscillatorNode 等
   var recording = false;
+  var pipWin = null;         // 浮動小視窗（Document Picture-in-Picture）的 window
+  var pipEl = null;          // 小視窗裡的元素
+  var pipOpening = false;
+  var floatFailed = false;   // 開窗失敗紅字（監聽畫面也看得到）
   var qa = null;
 
   if (TEST) {
@@ -93,6 +101,11 @@
     for (var j = 0; j < el.dots.children.length; j++) el.dots.children[j].classList.toggle('on', j < m.dotsOn);
     el.alarmSub.textContent = '安靜 ' + settings.quiet + ' 秒就會停';
 
+    // 浮動小視窗
+    el.float.hidden = !PIP_OK || !!pipWin || pipOpening;
+    el.floatError.textContent = floatFailed ? TEXT_FLOAT_FAIL : '';
+    renderPip(lv, th, mood);
+
     // 錄音
     var custom = settings.sound === 'custom';
     el.recordRow.hidden = !custom;
@@ -115,15 +128,173 @@
   }
 
   function showError(text) { el.error.textContent = text || ''; }
+  function clearFloatError() {
+    if (!floatFailed) return;
+    floatFailed = false;
+    if (el.error.textContent === TEXT_FLOAT_FAIL) showError('');
+  }
+
+  // ---------- 浮動小視窗（電腦版） ----------
+  var PIP_CSS = [
+    ':root{--ink:#2b2b2b;--muted:#7a776f;--green:#3fb27f;--yellow:#f2b632;--red:#e5484d}',
+    '*{box-sizing:border-box}',
+    'html,body{margin:0;height:100%}',
+    'body{background:#fff;color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-user-select:none;user-select:none;overflow:hidden}',
+    '#pip-root{height:100%;display:flex}',
+    '.pv{display:none;flex:1;min-width:0}',
+    '#pip-root[data-screen="listening"] .pv-listening{display:flex;align-items:center;gap:12px;padding:12px 14px}',
+    '#pip-root[data-screen="alarm"] .pv-alarm{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 14px}',
+    '#pip-root[data-screen="stopped"] .pv-stopped{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 14px;text-align:center}',
+    '#pip-root[data-screen="alarm"]{background:var(--red);color:#fff;animation:flash .8s steps(1) infinite}',
+    '@keyframes flash{50%{background:#b8262b}}',
+    '.face{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:30px;flex:none}',
+    '#pip-root[data-mood="calm"] .face{background:#e3f5ec}',
+    '#pip-root[data-mood="warn"] .face{background:#fdf1d6}',
+    '#pip-root[data-mood="loud"] .face{background:#fbe1e2}',
+    '.info{flex:1;min-width:0}',
+    '.st{font-size:15px;font-weight:700;margin-bottom:8px}',
+    '#pip-root[data-mood="calm"] .st{color:var(--green)}',
+    '#pip-root[data-mood="warn"] .st{color:#d99a0b}',
+    '#pip-root[data-mood="loud"] .st{color:var(--red)}',
+    '.bar{position:relative;height:12px;border-radius:6px;background:#eeebe4}',
+    '.fill{height:100%;width:0;border-radius:6px;transition:width .1s linear}',
+    '#pip-root[data-mood="calm"] .fill{background:var(--green)}',
+    '#pip-root[data-mood="warn"] .fill{background:var(--yellow)}',
+    '#pip-root[data-mood="loud"] .fill{background:var(--red)}',
+    '.thr{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px;left:65%}',
+    '.nums{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px}',
+    '.nums b{color:var(--ink);font-variant-numeric:tabular-nums}',
+    '.title{font-size:24px;font-weight:800;letter-spacing:2px}',
+    '.dots{display:flex;gap:7px}',
+    '.dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff}',
+    '.dot.on{background:#fff}',
+    '.dismiss{display:block;width:100%;border:0;border-radius:10px;padding:6px 0;background:#fff;color:var(--red);font:inherit;font-size:14px;font-weight:700;cursor:pointer}',
+    '.stop-title{font-size:18px;font-weight:800}',
+    '.stop-hint{font-size:12px;color:var(--muted)}',
+  ].join('\n');
+
+  var PIP_HTML =
+    '<div id="pip-root" data-screen="listening" data-mood="calm">' +
+      '<div class="pv pv-listening">' +
+        '<div class="face" id="pip-face">😊</div>' +
+        '<div class="info">' +
+          '<div class="st" id="pip-mood-text">很安靜</div>' +
+          '<div class="bar"><div class="fill" id="pip-fill"></div><div class="thr" id="pip-thr"></div></div>' +
+          '<div class="nums"><span>現在 <b id="pip-level">0</b></span><span id="pip-threshold">警報 65</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pv pv-alarm">' +
+        '<div class="title">請安靜！</div>' +
+        '<div class="dots" id="pip-dots"></div>' +
+        '<button type="button" class="dismiss" id="pip-dismiss">解除</button>' +
+      '</div>' +
+      '<div class="pv pv-stopped">' +
+        '<div class="stop-title">已停止</div>' +
+        '<div class="stop-hint">回主頁按開始</div>' +
+      '</div>' +
+    '</div>';
+
+  function pipScreen() {
+    if (m.screen === 'alarm') return 'alarm';
+    if (m.running && (m.screen === 'listening' || m.screen === 'settings')) return 'listening';
+    return 'stopped';
+  }
+
+  function renderPip(lv, th, mood) {
+    if (!pipEl) return;
+    var p = pipEl;
+    p.root.setAttribute('data-screen', pipScreen());
+    p.root.setAttribute('data-mood', mood);
+    p.face.textContent = MOODS[mood].face;
+    p.moodText.textContent = MOODS[mood].text;
+    p.level.textContent = String(lv);
+    p.fill.style.width = lv + '%';
+    p.thr.style.left = th + '%';
+    p.threshold.textContent = '警報 ' + th;
+    var want = settings.quiet;
+    if (p.dots.children.length !== want) {
+      p.dots.textContent = '';
+      for (var i = 0; i < want; i++) {
+        var d = p.doc.createElement('span');
+        d.className = 'dot';
+        p.dots.appendChild(d);
+      }
+    }
+    for (var j = 0; j < p.dots.children.length; j++) p.dots.children[j].classList.toggle('on', j < m.dotsOn);
+  }
+
+  function buildPip(w) {
+    var d = w.document;
+    try { d.title = '安靜警報'; } catch (e) {}
+    var style = d.createElement('style');
+    style.textContent = PIP_CSS;
+    (d.head || d.documentElement).appendChild(style);
+    d.body.innerHTML = PIP_HTML;
+    function g(id) { return d.getElementById(id); }
+    pipEl = {
+      doc: d, root: g('pip-root'), face: g('pip-face'), moodText: g('pip-mood-text'), level: g('pip-level'),
+      fill: g('pip-fill'), thr: g('pip-thr'), threshold: g('pip-threshold'), dots: g('pip-dots'),
+    };
+    g('pip-dismiss').addEventListener('click', dismiss);
+  }
+
+  function onPipHide() {
+    var w = pipWin;
+    if (!w) return;
+    var moveTicker = tickTimer && tickHost === w;
+    if (moveTicker) stopTicker();   // 小視窗還沒關乾淨前清掉它身上的計時器
+    pipWin = null;
+    pipEl = null;
+    if (moveTicker && m.running) startTicker();   // 搬回主頁
+    render();
+  }
+
+  function openFloat() {
+    if (!PIP_OK || pipWin || pipOpening) return;
+    var fail = function () {
+      pipOpening = false;
+      floatFailed = true;
+      showError(TEXT_FLOAT_FAIL);
+      render();
+    };
+    var req;
+    try {
+      req = window.documentPictureInPicture.requestWindow({ width: 240, height: 140 });
+    } catch (e) { fail(); return; }
+    pipOpening = true;
+    render();
+    Promise.resolve(req).then(function (w) {
+      pipOpening = false;
+      try {
+        if (!w || !w.document || !w.document.body) throw new Error('no window');
+        pipWin = w;
+        buildPip(w);
+        w.addEventListener('pagehide', onPipHide);
+      } catch (e) {
+        pipWin = null;
+        pipEl = null;
+        try { if (w && w.close) w.close(); } catch (e2) {}
+        fail();
+        return;
+      }
+      clearFloatError();
+      if (m.running) startTicker();   // 計時器改掛到小視窗
+      render();
+    }, fail);
+  }
 
   // ---------- 計時 ----------
+  // 小視窗開著就把量測計時器掛在小視窗的 window：主頁分頁在背景時 Chrome 會把主頁的 setInterval
+  // 壓到 1 秒以上，但小視窗本身一直是可見的，掛在它身上的計時器不受背景節流影響。
   function startTicker() {
     stopTicker();
-    tickTimer = setInterval(tick, L.TICK_MS);
+    tickHost = pipWin || window;
+    tickTimer = tickHost.setInterval(tick, L.TICK_MS);
   }
   function stopTicker() {
-    if (tickTimer) clearInterval(tickTimer);
+    if (tickTimer) { try { tickHost.clearInterval(tickTimer); } catch (e) {} }
     tickTimer = null;
+    tickHost = window;
   }
 
   function readMicLevel() {
@@ -246,6 +417,7 @@
   // ---------- 開始／停止 ----------
   function start() {
     if (m.running || starting) return;
+    floatFailed = false;
     showError('');
     if (TEST) {
       smoothed = 0;
@@ -292,6 +464,7 @@
   function stop() {
     m.stop();
     teardown();
+    clearFloatError();
     render();
   }
 
@@ -519,6 +692,7 @@
   // ---------- 事件 ----------
   $('btn-start').addEventListener('click', start);
   $('btn-stop').addEventListener('click', stop);
+  el.float.addEventListener('click', openFloat);
   $('btn-settings').addEventListener('click', function () { m.openSettings(); render(); });
   $('btn-back').addEventListener('click', function () { m.back(); render(); });
   $('btn-dismiss').addEventListener('click', dismiss);
